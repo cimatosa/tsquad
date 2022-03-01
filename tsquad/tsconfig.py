@@ -3,6 +3,10 @@ These parameters control the pre-calculation of the nodes and weights use for th
 numeric tanh-sinh integration scheme.
 """
 
+# this file holds the pre-calculated nodes and weights, it will be generated on the fly and is controlled by
+# the parameters given below
+_f_name = "nodes_weights.py"
+
 # various limit for t_max,
 #     t_max=3      -> x_low = 4.3e-14
 #     t_max=6.1124 -> x_low = 2.2e-308
