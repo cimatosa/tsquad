@@ -159,19 +159,13 @@ def test_quad_osc():
     assert abs(r.I - r_ref_5002) - r.err
 
     r = tsq.quad_osc_finite(0, 5002, 10 * 2 * math.pi / 3)
-    assert abs(r.I - r_ref_5002) - r.err
+    assert abs(r.I - r_ref_5002) < r.err
 
 def test_quad_osc_infinite():
     w = 1
     s = 0.2
     f = lambda x: 1 / x**s * math.cos(w * x)
-    tsq = tsquad_py.QuadTS(f=f, osc_limit=100000)
+    tsq = tsquad_py.QuadTS(f=f)
+    r_ref = math.gamma(1 - s) * math.sin(math.pi * s / 2)
     r = tsq.quad_osc_upper_infinite(a=0, period=2 * math.pi / w)
-    r2 = tsq.quad_osc_finite(a=0, b = 50000, period=2 * math.pi / w)
-    r_ref = math.gamma(1-s) * math.sin(math.pi*s/2)
-    print(r)
-    print(r2)
-    print(r_ref)
-    assert abs(r.I - r_ref) - r.err
-
-    assert False
+    assert abs(r.I - r_ref) < 1e-5

@@ -641,6 +641,7 @@ class QuadTS(object):
             eps2 = sht.get_shanks(k=-2)
             if abs( (eps-eps2) / eps) < self.osc_threshold:
                 res.I = eps
+                res.err = None
                 return res
 
             if (cnt > self.osc_limit):
