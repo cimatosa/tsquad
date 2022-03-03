@@ -1,48 +1,63 @@
 import numpy as np
 
+
 class Shanks(object):
     """
     see https://doi.org/10.1016/S0377-0427(00)00355-1
     """
 
-    def __init__(self):
+    def __init__(self, a=[]):
+        """
+        Init with the sequence a.
+        """
         self.data = [[]]
         self.cnt = 0
 
-    def new_element(self, a):
-        self.cnt += 1
+        if len(a) > 0:
+            self.add_sequence(a)
+
+    def add_element(self, a):
+        """
+        Add new element of the series.
+        Calculate the new data for the Shanks table made available by the new element.
+        :param a: new element of the series
+        :return: best extrapolation
+        """
         # append new element to first row
         self.data[0].append(a)
         # create new row for Shanks cnt-th order
         self.data.append([])
-        # fill Shanks table / a new anti-diagonal in the Shank matrix
-        for i in range(1, self.cnt):
 
-            self.data[i]
+        if self.cnt > 0:
+            # fill Shanks table / a new anti-diagonal in the Shank matrix
+            self.data[1].append(1 / (self.data[0][-1] - self.data[0][-2]))
+            for i in range(1, self.cnt):
+                e1 = self.data[i - 1][-2]
+                e2 = self.data[i][-1] - self.data[i][-2]
+                e = e1 + 1 / e2
+                self.data[i + 1].append(e)
+        self.cnt += 1
+        return self.get_shanks()
 
+    def add_sequence(self, a):
+        """
+        Add a sequence of new elements.
+        :param a: sequence of elements
+        :return: best extrapolation after adding
+        """
+        for ai in a:
+            r = self.add_element(ai)
+        return r
 
-def dev():
-    n = 10
-    sh = Shanks()
-    ak = 0
-    for k in range(1, n):
-        sk = (-1)**(k+1) / k
-        ak += sk
-        sh.new_element(ak)
-
-    print(sh.data)
-
-
-
-
-
-
-
-
-
-
-    print(np.log(2))
-
-
-if __name__ == "__main__":
-    dev()
+    def get_shanks(self, k=-1):
+        """
+        Return the latest element of the k-th order Shanks transformation.
+        :param k: order (= multiple applications of the Shanks transform),
+                  use negative value to access the highest (-1), the second highest (-2) etc. order
+        :return: best current extrapolation
+        """
+        if k < 0:
+            k_max = (self.cnt - 1) // 2
+            k = k_max + k + 1
+        i = 2 * k
+        return self.data[i][-1]

@@ -17,6 +17,7 @@ def test_pass_class_instance_by_reference():
     inc(r)
     assert r.func_calls == 1
 
+
 def test_add_QuadRes():
     r1 = tsquad_py.QuadRes(I=1, err=2, func_calls=3, rec_steps=4)
     r2 = r1 + r1
@@ -30,6 +31,7 @@ def test_add_QuadRes():
     assert r2.err == 4
     assert r2.func_calls == 6
     assert r2.rec_steps == 8
+
 
 def test_inf():
     a = np.inf

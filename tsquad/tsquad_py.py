@@ -11,6 +11,7 @@ import traceback
 import typing
 
 # tsquad module imports
+from . import shanks
 from . import tsconfig
 from . import generate_py_nodes_weights
 
@@ -40,7 +41,7 @@ class TSIntegrationFunctionEvaluationError(Exception):
     pass
 
 
-class TSOscIntegrationLimitReachedError(Exception):
+class TSIntegrationOscLimitReachedError(Exception):
     pass
 
 
@@ -125,6 +126,13 @@ class QuadTS(object):
                             this controls the resolution of the lower bound a of the x-integral.
                             Mainly needed by testing purposes.
     :param subgrid_max: Set the number of sub-grids to use. If `subgrid_max=0` use the largest number ava
+    :param osc_threshold: when summing up integrals of single periods of oscillating functions
+                          (see `quad_osc_finite`) this threshold stops the summation
+                          if `|(I_k - s_k) / I_k| < osc_threshold`.
+                          It poses a relative threshold for the new term `s_k` with respect to the partial sum `I_k`.
+    :param osc_limit: Stops the summation for oscillatory functions (see `quad_osc_finite`) and raises a
+                      `TSIntegrationOscLimitReachedError` when `osc_limit` terms have been added.
+                      Set `osc_limit=0` to have no limit.
     :param debug: if True, enable debug messages
     """
 
@@ -138,6 +146,8 @@ class QuadTS(object):
         rec_limit: int = 50,
         force_t_max_idx: [None, int] = None,
         subgrid_max=0,
+        osc_threshold=1e-12,
+        osc_limit=5000,
         debug=False,
     ):
         # init class members
@@ -149,6 +159,8 @@ class QuadTS(object):
         self.rec_limit = rec_limit
         self.force_t_max_idx = force_t_max_idx
         self.subgrid_max = subgrid_max
+        self.osc_threshold = osc_threshold
+        self.osc_limit = osc_limit
         self.debug = debug
 
         # process data
@@ -562,82 +574,78 @@ class QuadTS(object):
         res.I *= sign
         return res
 
-# https://github.com/pjlohr/WynnEpsilon/blob/master/wynnpi.py
-def quad_osc_ts(
-    f,
-    a,
-    b,
-    periode,
-    args=tuple(),
-    abs_tol=1e-12,
-    rel_tol=1e-12,
-    limit=50,
-    force_tmax_idx=None,
-    adaptive=True,
-    subgrid_max=0,
-    get_func_calls=False,
-    get_adaptive_splits=False,
-    threshold=1e-12,
-    osc_limit=5000,
-):
-    _res = np.asanyarray([0.0, 0.0, 0, 0], dtype=object)
-    i = 0
-    last_res_scale = 1
-    while True:
-        tmp_xm = a + (i + 1) * periode
-        if (tmp_xm) > b:
-            _res += quad_ts(
-                f,
-                a + i * periode,
-                b,
-                args,
-                last_res_scale * abs_tol,
-                rel_tol,
-                limit,
-                force_tmax_idx,
-                adaptive,
-                subgrid_max,
-                True,
-                True,
-            )
-            break
+    def quad_osc_finite(self, a: numeric, b: numeric, period: numeric) -> QuadRes:
+        """
+        Integrate an oscillatory function by splitting the interval `[a,b]` into
+        sub-intervals with length `periood`.
+        Note that `periode` should be an integer multiple of the intrinsic period of
+        the oscillating integrand.
+        :param a: lower bound
+        :param b: upper pound
+        :param period: length of sub-intervals
+        :return: the results as QuadRes
+        """
+        cnt = 0
+        res = QuadRes()
+        x_low = a
+        while True:
+            x_high = a + (cnt + 1) * period
+            if (x_high) > b:
+                x_high = b
 
-        new_res = quad_ts(
-            f,
-            a + i * periode,
-            tmp_xm,
-            args,
-            last_res_scale * abs_tol,
-            rel_tol,
-            limit,
-            force_tmax_idx,
-            adaptive,
-            subgrid_max,
-            True,
-            True,
-        )
-        _res += new_res
-        # print("i", i)
-        # print("new_res", new_res)
-        # print("res    ", _res)
-        # print("ratio  ", abs(new_res[0])/abs(_res[0]))
-        last_res_scale = abs(new_res[0])
+            new_res = self.quad_finite_boundary(x_low, x_high)
+            if (abs(res.I) != 0) and (
+                abs((res.I - new_res.I) / res.I) < self.osc_threshold
+            ):
+                return res
 
-        if abs(new_res[0]) / abs(_res[0]) < threshold:
-            break
-        if (i > osc_limit) and (osc_limit > 0):
-            raise TSOscIntegrationLimitReachedError(
-                "ts_quad_osc reached the osc_limit {}".format(osc_limit)
-            )
-        i += 1
+            res = res + new_res
+            if x_high == b:
+                return res
 
-    res = [_res[0]]
-    if get_func_calls:
-        res.append(_res[2])
-    if get_adaptive_splits:
-        res.append(_res[3])
+            if (cnt > self.osc_limit) and (self.osc_limit > 0):
+                raise TSIntegrationOscLimitReachedError(
+                    "quad_osc reached the osc_limit {}".format(self.osc_limit)
+                )
+            cnt += 1
+            x_low = x_high
 
-    if len(res) == 1:
-        return res[0]
-    else:
-        return res
+
+    def quad_osc_upper_infinite(self, a: numeric, period: numeric) -> QuadRes:
+        """
+        Estimate infinite integral by sequentially integrate over sub-intervals of
+        length `period` and approximate the asymptotic value using Shanks' transformation (Wynn epsilon algorithm).
+        :param a: lower bound
+        :param period: length of sub-intervals
+        :return: result as QuadRes
+        """
+
+        sht = shanks.Shanks()
+
+        cnt = 0
+        res = QuadRes()
+        x_low = a
+        while True:
+            # we need two new elements to get a new order for the Shanks transform
+            for _ in range(2):
+                x_high = a + (cnt + 1) * period
+                new_res = self.quad_finite_boundary(x_low, x_high)
+                res = res + new_res
+                sht.add_element(res.I)
+                cnt += 1
+                x_low = x_high
+
+            # this is the latest estimate
+            eps = sht.get_shanks(k=-1)
+            # this is the second-latest estimate
+            eps2 = sht.get_shanks(k=-2)
+            if abs( (eps-eps2) / eps) < self.osc_threshold:
+                res.I = eps
+                return res
+
+            if (cnt > self.osc_limit):
+                raise TSIntegrationOscLimitReachedError(
+                    "quad_osc reached the osc_limit {}".format(self.osc_limit)
+                )
+
+
