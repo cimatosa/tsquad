@@ -7,6 +7,7 @@
 # python import
 import logging
 import math
+import cmath
 import traceback
 import typing
 
@@ -64,7 +65,7 @@ def _f_x_exception_wrapper(f, x, args):
             "Failed to evaluate function (Exception occurred during function call)"
         )
 
-    if math.isnan(f_x):
+    if cmath.isnan(f_x):
         raise TSIntegrationFunctionEvaluationError(
             "Failed to evaluate function (function returns nan at x={:.8e})".format(x)
         )
@@ -81,9 +82,15 @@ class QuadRes(object):
         self.rec_steps = rec_steps
 
     def __add__(self, other):
+
+        if (self.err is not None) and (other.err is not None):
+            err = self.err + other.err
+        else:
+            err = None
+
         r = QuadRes(
             I=self.I + other.I,
-            err=self.err + other.err,
+            err=err,
             func_calls=self.func_calls + other.func_calls,
             rec_steps=self.rec_steps + other.rec_steps,
         )
@@ -93,6 +100,9 @@ class QuadRes(object):
         return "QuadRes(I={}, err={}, func_calls={}, rec_steps={})".format(
             self.I, self.err, self.func_calls, self.rec_steps
         )
+
+    def __repr__(self):
+        return self.__str__()
 
 
 class QuadTS(object):
@@ -149,19 +159,32 @@ class QuadTS(object):
         osc_threshold=1e-12,
         osc_limit=5000,
         debug=False,
+        other=None,
     ):
         # init class members
         self.f = f
-        self.args = args
-        self.abs_tol = abs_tol
-        self.rel_tol = rel_tol
-        self.recursive = recursive
-        self.rec_limit = rec_limit
-        self.force_t_max_idx = force_t_max_idx
-        self.subgrid_max = subgrid_max
-        self.osc_threshold = osc_threshold
-        self.osc_limit = osc_limit
-        self.debug = debug
+        if other is None:
+            self.args = args
+            self.abs_tol = abs_tol
+            self.rel_tol = rel_tol
+            self.recursive = recursive
+            self.rec_limit = rec_limit
+            self.force_t_max_idx = force_t_max_idx
+            self.subgrid_max = subgrid_max
+            self.osc_threshold = osc_threshold
+            self.osc_limit = osc_limit
+            self.debug = debug
+        else:
+            self.args = other.args
+            self.abs_tol = other.abs_tol
+            self.rel_tol = other.rel_tol
+            self.recursive = other.recursive
+            self.rec_limit = other.rec_limit
+            self.force_t_max_idx = other.force_t_max_idx
+            self.subgrid_max = other.subgrid_max
+            self.osc_threshold = other.osc_threshold
+            self.osc_limit = other.osc_limit
+            self.debug = other.debug
 
         # process data
         if self.subgrid_max == 0:
@@ -174,7 +197,7 @@ class QuadTS(object):
 
     def _get_integral_bound(self, a, b):
         """
-            chose t_max such that |w_(t_max) I(g(t_max))| < abs_tol
+        chose t_max such that |w_(t_max) I(g(t_max))| < abs_tol
         """
         sc = (b - a) / 2
         for i in range(tsconfig.N_t_max):
@@ -289,7 +312,10 @@ class QuadTS(object):
                         print("return, {:.16e} +- {:.4e}".format(I_res, err_est))
                     err_est = max(err3, err4)
                     return QuadRes(
-                        I=I_res, err=err_est, func_calls=local_func_calls, rec_steps=1,
+                        I=I_res,
+                        err=err_est,
+                        func_calls=local_func_calls,
+                        rec_steps=1,
                     )
                 else:
                     d1_log = math.log10(d1)
@@ -302,9 +328,14 @@ class QuadTS(object):
                 if self.debug:
                     print("err1 = {:.8e}".format(err1))
 
-                if d2 > 1e-308:
-                    d2_log = math.log10(d2)
-                    tmp = d1_log ** 2 / d2_log
+                if (d2 > 1e-308) and (d2 < 1):
+                    try:
+                        d2_log = math.log10(d2)
+                        tmp = d1_log ** 2 / d2_log
+                    except ZeroDivisionError:
+                        print("d2", d2)
+                        print("d2_log", d2_log)
+                        raise
                     if self.debug:
                         print("d1_log", d1_log)
                         print("d2_log", d2_log)
@@ -489,59 +520,51 @@ class QuadTS(object):
         """
         res1 = self.quad_finite_boundary(a, a + 1)
 
-        tsq2 = QuadTS(
-            f=lambda t: self.f(1 / t + a, *self.args) / t ** 2,
-            args=tuple(),
-            abs_tol=self.abs_tol,
-            rel_tol=self.rel_tol,
-            recursive=self.recursive,
-            rec_limit=self.rec_limit,
-            force_t_max_idx=self.force_t_max_idx,
-            subgrid_max=self.subgrid_max,
-            debug=self.debug,
-        )
+        tsq2 = QuadTS(f=lambda t, *args: self.f(1 / t + a, *args) / t ** 2, other=self)
         res2 = tsq2.quad_finite_boundary(0, 1)
 
         return res1 + res2
 
     def quad_lower_infinite(self, b: numeric) -> QuadRes:
         """
-            As in `quad_upper_infinite` split into [-inf, b-1] and [b-1, b].
-            For the first interval use t = -1/(x-b) which yields
+        As in `quad_upper_infinite` split into [-inf, b-1] and [b-1, b].
+        For the first interval use t = -1/(x-b) which yields
 
-                int_-inf^(b-1) f(x) dx = int_0^1 f(-1/t + b)/t**2 dt
+            int_-inf^(b-1) f(x) dx = int_0^1 f(-1/t + b)/t**2 dt
 
-            Each interval is treated independently, which means that for both intervals the same recursion limit
-            is used, therefore the recursion limit is effectively doubled.
-            :param b: lower bound
-            :return: result as QuadRes
+        Each interval is treated independently, which means that for both intervals the same recursion limit
+        is used, therefore the recursion limit is effectively doubled.
+        :param b: lower bound
+        :return: result as QuadRes
         """
 
         res1 = self.quad_finite_boundary(b - 1, b)
 
-        tsq2 = QuadTS(
-            f=lambda t: self.f(-1 / t + b, *self.args) / t ** 2,
-            args=tuple(),
-            abs_tol=self.abs_tol,
-            rel_tol=self.rel_tol,
-            recursive=self.recursive,
-            rec_limit=self.rec_limit,
-            force_t_max_idx=self.force_t_max_idx,
-            subgrid_max=self.subgrid_max,
-            debug=self.debug,
-        )
+        tsq2 = QuadTS(f=lambda t, *args: self.f(-1 / t + b, *args) / t ** 2, other=self)
         res2 = tsq2.quad_finite_boundary(0, 1)
 
         return res1 + res2
 
-    def quad(self, a: numeric, b: numeric):
+    def _mathyfi_inf_str(self, c):
+        """convert '+-inf' as str to +-math.inf"""
+        if (c == "inf") or (c == "+inf"):
+            c = math.inf
+        elif c == "-inf":
+            c = -math.inf
+        return c
+
+    def quad(self, a: [numeric, str], b: [numeric, str]):
         """
         General method used to integrate from a to b.
         Automatically handly infinite boundaries.
+        Infinite boundary conditions can be given by math.inf or numpy.inf or 'inf'
         :param a: lower boundary
         :param b: upper boundary
         :return: the result as QuadRes
         """
+
+        a = self._mathyfi_inf_str(a)
+        b = self._mathyfi_inf_str(b)
 
         if a == b:
             return QuadRes(I=0, err=0, func_calls=0, rec_steps=0)
@@ -610,21 +633,26 @@ class QuadTS(object):
             cnt += 1
             x_low = x_high
 
-
-    def quad_osc_upper_infinite(self, a: numeric, period: numeric) -> QuadRes:
+    def _quad_osc_upper_infinite_inspect(
+        self, a: numeric, period: numeric, use_mp
+    ) -> typing.Tuple[QuadRes, shanks.Shanks]:
         """
-        Estimate infinite integral by sequentially integrate over sub-intervals of
-        length `period` and approximate the asymptotic value using Shanks' transformation (Wynn epsilon algorithm).
-        :param a: lower bound
-        :param period: length of sub-intervals
-        :return: result as QuadRes
-        """
+        see `quad_osc_upper_infinite`
 
-        sht = shanks.Shanks()
+        return in addition the Shanks transform table to inspect the convergence speedup.
+
+        :return: a tuple containing the result and the Shanks object
+        """
+        sht = shanks.Shanks(use_mp=use_mp)
 
         cnt = 0
         res = QuadRes()
         x_low = a
+
+        # use half the native period this yields an alternating series
+        # who's partial sum is well suited for extrapolation using Shanks' transform
+        period /= 2
+
         while True:
             # we need two new elements to get a new order for the Shanks transform
             for _ in range(2):
@@ -639,14 +667,116 @@ class QuadTS(object):
             eps = sht.get_shanks(k=-1)
             # this is the second-latest estimate
             eps2 = sht.get_shanks(k=-2)
-            if abs( (eps-eps2) / eps) < self.osc_threshold:
+            if abs((eps - eps2) / eps) < self.osc_threshold:
                 res.I = eps
                 res.err = None
-                return res
+                return res, sht
 
-            if (cnt > self.osc_limit):
+            if cnt > self.osc_limit:
                 raise TSIntegrationOscLimitReachedError(
                     "quad_osc reached the osc_limit {}".format(self.osc_limit)
                 )
 
+    def quad_osc_upper_infinite(
+        self, a: numeric, period: numeric, use_mp=False
+    ) -> QuadRes:
+        """
+        Estimate infinite integral over [a, inf] by sequentially integrate over sub-intervals of
+        length `period` and approximate the asymptotic value using Shanks' transformation (Wynn epsilon algorithm).
+        :param a: lower bound
+        :param period: length of sub-intervals
+        :return: result as QuadRes
+        """
+        r, _ = self._quad_osc_upper_infinite_inspect(a, period, use_mp)
+        return r
 
+    def quad_osc_lower_infinite(
+        self, b: numeric, period: numeric, use_mp=False
+    ) -> QuadRes:
+        """
+        Estimate infinite integral over [-inf, b] by sequentially integrate over sub-intervals of
+        length `period` and approximate the asymptotic value using Shanks' transformation (Wynn epsilon algorithm).
+        :param b: upper bound
+        :param period: length of sub-intervals
+        :return: result as QuadRes
+        """
+
+        qts = QuadTS(f=lambda x, *args: self.f(-x, *args), other=self)
+        r, _ = qts._quad_osc_upper_infinite_inspect(-b, period, use_mp)
+        return r
+
+    def quad_osc(
+        self, a: numeric, b: numeric, period: numeric = None, frequency: numeric = None
+    ):
+        """
+        General method used to integrate an oscillatory function with
+        period `period` from `a` to `b`.
+        Automatically handly infinite boundaries.
+        For a finite integration interval, consider using simply `quad`, which might be faster.
+        Specify either, period or frequency.
+        :param a: lower boundary
+        :param b: upper boundary
+        :param period: for infinite boundaries this should be the smallest period,
+                       because the used Shanks transformation for extrapolation
+                       needs alternating terms which are assumed to appear when using
+                       half the smallest period for subdividing the integration.
+        :param frequency: calculate period = 2 pi / frequency
+        :return: the result as QuadRes
+        """
+
+        if period is None:
+            period = 2 * math.pi / frequency
+
+        if a == b:
+            return QuadRes(I=0, err=0, func_calls=0, rec_steps=0)
+
+        if b < a:
+            c = a
+            a = b
+            b = c
+            sign = -1
+        else:
+            sign = +1
+
+        if a == -math.inf:
+            if b == math.inf:
+                # both inf, correct order
+                res_1 = self.quad_osc_lower_infinite(0, period)
+                res_2 = self.quad_osc_upper_infinite(0, period)
+                res = res_1 + res_2
+            else:
+                # a=-inf, b is finite
+                res = self.quad_osc_lower_infinite(b, period)
+        else:
+            if b == math.inf:
+                # a is finite, b=inf
+                res = self.quad_osc_upper_infinite(a, period)
+            else:
+                # both finite
+                res = self.quad_osc_finite(a, b, period)
+
+        res.I *= sign
+        return res
+
+    def quad_cos(self, a: numeric, b: numeric, w: numeric):
+        """
+        Convenient function to integrate `f(x) * cos(w*x)` from `a` to `b` using `quad_osc()`.
+        """
+        qts = QuadTS(f=lambda x, *args: self.f(x, *args) * math.cos(w * x), other=self)
+        return qts.quad_osc(a, b, frequency=abs(w))
+
+    def quad_sin(self, a: numeric, b: numeric, w: numeric):
+        """
+        Convenient function to integrate `f(x) * sin(w*x)` from `a` to `b` using `quad_osc()`.
+        """
+        qts = QuadTS(f=lambda x, *args: self.f(x, *args) * math.sin(w * x), other=self)
+        return qts.quad_osc(a, b, frequency=abs(w))
+
+    def quad_Fourier(self, a: numeric, b: numeric, w: numeric):
+        """
+        Convenient function to integrate `f(x) * exp(1j*w*x)` from `a` to `b` using `quad_osc()`.
+        """
+        qts = QuadTS(
+            f=lambda x, *args: self.f(x, *args) * cmath.exp(1j * w * x), other=self
+        )
+        return qts.quad_osc(a, b, frequency=abs(w))

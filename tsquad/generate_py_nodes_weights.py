@@ -30,7 +30,7 @@ def _s(t):
 
 
 def _1mg(t):
-    """the function 1-g(t) rewritten to yield accurate results for t -> inf, i.e., 0 < 1-g(t) << 1 """
+    """the function 1-g(t) rewritten to yield accurate results for t -> inf, i.e., 0 < 1-g(t) << 1"""
     s = _s(t)
     return 1 / mp.exp(s) / mp.cosh(s)
 
@@ -161,9 +161,7 @@ def run(overwrite=False):
         return
 
     logging.info("generate nodes and weights ...")
-    import generate_py_nodes_weights
-
-    generate_py_nodes_weights.write_g_w_(
+    write_g_w_(
         N_0=tsconfig.N_0,
         k=tsconfig.num_sub_grids - 1,
         f_name=_f_name_abs,

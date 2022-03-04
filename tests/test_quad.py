@@ -1,5 +1,4 @@
 from tsquad import tsquad_py
-import mpmath
 import math
 
 
@@ -9,8 +8,8 @@ def test_simple_quad_ts():
         a = 0
         b = 3.34
 
-        tsq = tsquad_py.QuadTS(f=f)
-        r = tsq._quad(a, b)
+        qts = tsquad_py.QuadTS(f=f)
+        r = qts._quad(a, b)
         assert abs(r.I - 1 / (s + 1) * b ** (s + 1)) < 1e-12
 
 
@@ -20,8 +19,8 @@ def test_IntegrationError_tolerance():
     b = 30
 
     try:
-        tsq = tsquad_py.QuadTS(f=f)
-        r = tsq._quad(a, b)
+        qts = tsquad_py.QuadTS(f=f)
+        r = qts._quad(a, b)
     except tsquad_py.TSIntegrationError:
         pass
     else:
@@ -59,22 +58,22 @@ def test_recursive_quad():
         / 12300288
     )
 
-    tsq = tsquad_py.QuadTS(f=f)
-    r = tsq.recursive_quad(a, b)
+    qts = tsquad_py.QuadTS(f=f)
+    r = qts.recursive_quad(a, b)
     assert r.rec_steps > 1
     err = math.fabs(r.I - F)
     assert err < r.err
 
     try:
-        tsq = tsquad_py.QuadTS(f=f, recursive=False)
-        tsq.quad_finite_boundary(a, b)
+        qts = tsquad_py.QuadTS(f=f, recursive=False)
+        qts.quad_finite_boundary(a, b)
     except tsquad_py.TSIntegrationError:
         pass
     else:
         assert False
 
-    tsq = tsquad_py.QuadTS(f=f, recursive=True)
-    r = tsq.quad_finite_boundary(a, b)
+    qts = tsquad_py.QuadTS(f=f, recursive=True)
+    r = qts.quad_finite_boundary(a, b)
     assert r.rec_steps > 1
     err = math.fabs(r.I - F)
     assert err < r.err
@@ -83,29 +82,31 @@ def test_recursive_quad():
 def test_inf_bound():
     f = lambda x: x ** 6 * math.exp(-x)
 
-    tsq = tsquad_py.QuadTS(f=f)
-    r = tsq.quad_upper_infinite(0)
+    qts = tsquad_py.QuadTS(f=f)
+    r = qts.quad_upper_infinite(0)
     err = math.fabs(r.I - 720)
     assert err < r.err
 
     f = lambda x: x ** 15 * math.exp(-(x ** 2))
-    tsq = tsquad_py.QuadTS(f=f)
-    r = tsq.quad_upper_infinite(0)
+    qts = tsquad_py.QuadTS(f=f)
+    r = qts.quad_upper_infinite(0)
     print(r)
     err = math.fabs(r.I - 2520)
     assert err < r.err
 
     f = lambda x: x ** 15 * math.exp(-(x ** 2))
-    tsq = tsquad_py.QuadTS(f=f)
-    r = tsq.quad_lower_infinite(0)
+    qts = tsquad_py.QuadTS(f=f)
+    r = qts.quad_lower_infinite(0)
     print(r)
     err = math.fabs(r.I - -2520)
     assert err < r.err
 
 
 def test_quad_generic():
-    f = lambda x: x ** 2 * math.exp(-(x ** 2))
-    tsq = tsquad_py.QuadTS(f=f)
+    f = lambda x, c, d: c * x ** 2 * math.exp(-(d * x ** 2))
+    c = 1
+    d = 1.0
+    qts = tsquad_py.QuadTS(f=f, args=(c, d))
 
     def F(a, b):
         if a == -math.inf:
@@ -137,11 +138,11 @@ def test_quad_generic():
         (-math.inf, math.inf),
     ]:
         F_ab = F(a, b)
-        r = tsq.quad(a, b)
+        r = qts.quad(a, b)
         eps = math.fabs(F_ab - r.I)
         assert eps < r.err
 
-        r = tsq.quad(b, a)
+        r = qts.quad(b, a)
         eps = math.fabs(-F_ab - r.I)
         assert eps < r.err
 
@@ -150,22 +151,62 @@ def test_quad_osc():
     r_ref_52 = -0.0533008743154537941
 
     f = lambda x: 1 / (1 + x) * math.sin(3 * x + 2)
-    tsq = tsquad_py.QuadTS(f=f)
-    r = tsq.quad_osc_finite(0, 52, 2 * math.pi / 3)
+    qts = tsquad_py.QuadTS(f=f)
+    r = qts.quad_osc_finite(0, 52, 2 * math.pi / 3)
     assert abs(r.I - r_ref_52) - r.err
 
     r_ref_5002 = -0.049406811762728814228
-    r = tsq.quad_osc_finite(0, 5002, 2 * math.pi / 3)
+    r = qts.quad_osc_finite(0, 5002, 2 * math.pi / 3)
     assert abs(r.I - r_ref_5002) - r.err
 
-    r = tsq.quad_osc_finite(0, 5002, 10 * 2 * math.pi / 3)
+    r = qts.quad_osc_finite(0, 5002, 10 * 2 * math.pi / 3)
     assert abs(r.I - r_ref_5002) < r.err
 
+
 def test_quad_osc_infinite():
-    w = 1
     s = 0.2
-    f = lambda x: 1 / x**s * math.cos(w * x)
-    tsq = tsquad_py.QuadTS(f=f)
+    f = lambda x: 1 / x ** s * math.cos(x)
+    qts = tsquad_py.QuadTS(f=f)
     r_ref = math.gamma(1 - s) * math.sin(math.pi * s / 2)
-    r = tsq.quad_osc_upper_infinite(a=0, period=2 * math.pi / w)
-    assert abs(r.I - r_ref) < 1e-5
+    r = qts.quad_osc_upper_infinite(a=0, period=math.pi)
+    assert abs(r.I - r_ref) < 1e-12
+
+    x1 = 5
+    x2 = 15
+    f_lor = lambda x: 1 / (1 + (x - x1) ** 2) + 1 / (1 + (x - x2) ** 2)
+    f = lambda x: f_lor(x) * math.cos(x)
+
+    qts = tsquad_py.QuadTS(f=f)
+    r_ref = 0.3166409928992998415133346 - 0.8785518615606478863082457
+    r = qts.quad_osc_upper_infinite(a=0, period=2 * math.pi)
+    assert abs(r.I - r_ref) < 1e-12
+
+
+def test_quad_osc_generic():
+    f = lambda x: math.cos(x) / (1 + (x - 2) ** 2)
+
+    qts = tsquad_py.QuadTS(f=f)
+
+    r_ref = -0.51968745377085467319
+    r = qts.quad_osc(-1, 5, frequency=1)
+    assert abs(r.I - r_ref) < r.err
+    r = qts.quad_osc(5, -1, frequency=1)
+    assert abs(r.I + r_ref) < r.err
+
+    r_ref = -0.43816779192103931139
+    r = qts.quad_osc(-1, math.inf, frequency=1)
+    assert abs(r.I - r_ref) < 1e-11
+    r = qts.quad_osc(math.inf, -1, frequency=1)
+    assert abs(r.I + r_ref) < 1e-11
+
+    r_ref = -0.22918437851152203078
+    r = qts.quad_osc(-math.inf, 3, frequency=1)
+    assert abs(r.I - r_ref) < 1e-11
+    r = qts.quad_osc(3, -math.inf, frequency=1)
+    assert abs(r.I + r_ref) < 1e-11
+
+    r_ref = -0.48095228052650475539
+    r = qts.quad_osc(-math.inf, math.inf, frequency=1)
+    assert abs(r.I - r_ref) < 1e-11
+    r = qts.quad_osc(math.inf, -math.inf, frequency=1)
+    assert abs(r.I + r_ref) < 1e-11

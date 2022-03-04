@@ -16,3 +16,5 @@
 #     from .tanhsinh_py import quad_ts
 #     from .tanhsinh_py import quad_osc_ts
 #     kind = "python"
+
+from .tsquad_py import QuadTS

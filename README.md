@@ -1,11 +1,67 @@
-# tsquad - Numeric Integration Using Tanh-Sinh Variable Transformation
+# tsquad - Numeric Integration Using tanh-sinh Variable Transformation
 
-This implementation is based on notes from 
-http://crd-legacy.lbl.gov/~dhbailey/dhbpapers/dhb-tanh-sinh.pdf.
+The `tsquad` package provides general purpose integration routines.
+For simple integration tasks this package is as good as the standard routines
+available e.g. by `scipy`.
+However, it is particularly suited to efficiently handle **singularities** by exploiting
+the *tanh-sinh* variable transformation (also known as *double exponential* approach), as nicely described here http://crd-legacy.lbl.gov/~dhbailey/dhbpapers/dhb-tanh-sinh.pdf.
+As of that, integrals with lower/upper **bounds at infinity** can be treated
+within that scheme.
+
+Furthermore, integrals over **oscillatory functions with an infinite boundary** are
+handled very efficiently by extrapolating the partial sums (obtained from integrating
+piecewise over half the period) using Shanks' transform (Wynn epsilon algorithm).
+This approach (or at least similar) is also available in the [GSL-library](
+https://www.gnu.org/software/gsl/doc/html/integration.html#qawf-adaptive-integration-for-fourier-integrals).
+
+For a visualization of great speedup of that extrapolation, see the 
+example in `examples_shanks.py`.
 
 # Install
 
+## poetry
+
+Add `tsquad` to your `pyproject.toml` file, like that
+    
+    [tool.poetry.dependencies]
+    tsquad = "^0.2.0"
+
+and run `poetry install`.
+
+## pip
+
+Run `pip install tsquad`.
+
+## git
+
+You find the source at https://github.com/cimatosa/tsquad.
+
 # Examples
+
+## Singularities
+
+Consider the function `f(x) = 1/x^0.9`. It diverges at `x=0`, however, the integral
+over `[0, 1]` is still finite (`I=10`).
+Using the tanh-sinh integration scheme allows to efficiently obtained a highly
+accurate numerical result.
+
+    >>> import tsquad
+    >>> f = lambda x: 1/x**0.9
+    >>> tsq = tsquad.QuadTS(f=f)
+    >>> tsq.quad(0, 1)
+    QuadRes(I=10.000000000000004, err=3.868661047952931e-14, func_calls=73, rec_steps=1)
+
+Note that the function has been called only 73 times.
+
+## Infinite boundary
+
+
+
+
+
+
+
+
 
 # Mathematical Details
 
