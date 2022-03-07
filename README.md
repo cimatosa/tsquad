@@ -2,9 +2,13 @@
 
 The `tsquad` package provides general purpose integration routines.
 For simple integration tasks this package is as good as the standard routines
-available e.g. by `scipy`.
-However, it is particularly suited to efficiently handle **singularities** by exploiting
-the *tanh-sinh* variable transformation (also known as *double exponential* approach), as nicely described here http://crd-legacy.lbl.gov/~dhbailey/dhbpapers/dhb-tanh-sinh.pdf.
+available e.g. by `scipy`. 
+Although, the `tsquad` routines can directly integrate handle **complex functions** 
+(along the real axes). 
+Most strikingly, the `tsquad` method is particularly suited to efficiently handle 
+**singularities** by exploiting the *tanh-sinh* variable transformation 
+(also known as *double exponential* approach), as nicely described 
+here http://crd-legacy.lbl.gov/~dhbailey/dhbpapers/dhb-tanh-sinh.pdf.
 As of that, integrals with lower/upper **bounds at infinity** can be treated
 within that scheme.
 
@@ -55,17 +59,68 @@ Note that the function has been called only 73 times.
 
 ## Infinite boundary
 
+Infinite boundary condition can be treated efficiently, too.
+They are mapped to an integral over a finite interval.
+The resulting singularity poses no difficulty for the tanh-sinh method.
+The infinite boundary can be specified either as `str` (`'inf'` and `'-inf'`)
+or by `math.inf` as well as `numpy.inf`.
+
+As example consider the integrand `1/(1 + (x+1)^2)`.
+Its indefinite integral is the `arctan`, so integrating over the whole real
+axes yield `pi`.
+
+    >>> import tsquad
+    >>> tsq = tsquad.QuadTS(f=f)
+    >>> tsq.quad(a='-inf', b='inf')
+    QuadRes(I=3.1415926535897643, err=2.3768122480443337e-12, func_calls=528, rec_steps=4)
+    >>> import math
+    >>> math.pi
+    3.141592653589793
+
+## Fourier integral
+
+Integrating oscillatory functions needs special care.
+In particular if the bounds are infinite.
+
+Usually, it is possible to integrate over single periods of the oscillation with 
+high accuracy.
+Summing up the individual integrals yields results for larger intervals at the 
+price of summing up the errors, too.
+For very rapidly oscillating functions this might cause some trouble.
+
+For infinite bounds this sum of partial integrals becomes infinite, often with
+very slow convergence.
+The convergence can be accelerated significantly if the terms of the partial 
+sum alternate in sign by using the Shanks transform 
+(implemented using Wynn's epsilon algorithm).
+For Fourier integrals (sin, cos or exp(i ...)) the alternating signs
+in the partial sum is realized by summing up finite integrals over **half** the period.
+
+As example consider the half-sided Fourier integral of the algebraically 
+decaying function `1/(1+1j*tau)^(s+1)`.
+So we aim to integrate
+
+    int_0^inf 1/(1+1j*tau)^(s+1) * exp(1j * w * tau) * d tau .
+
+Note that an analytic expression is possible, which involves the incomplete gamma function
+with complex-valued second argument.
 
 
-
-
-
-
+    >>> import tsquad
+    >>> import mpmath as mp
+    >>> s = 0.5
+    >>> w = 1
+    >>> f = lambda tau, s: 1/(1+1j*tau)**(s+1)
+    >>> tsq = tsquad.QuadTS(f=f, args=(s,))
+    >>> tsq.quad_Fourier(0, 'inf', w=w)
+    QuadRes(I=(1.3040986643460277+0.1523180276515212j), err=None, func_calls=2113, rec_steps=16)
+    >>> (-1j*w)**s / 1j**(s+1) * mp.exp(-w) * mp.gammainc(-s, -w-1j*1e-16)
+    mpc(real='1.30409866434658424220297858', imag='0.152318027651073881301097481')
 
 
 # Mathematical Details
 
-Note that this approach is particularly useful when the integrand is singular at `x=0` 
+Note that the tanh-sinh approach is particularly useful when the integrand is singular at `x=0` 
 and the integration goes from `a=0` to `b`, i.e.,
 
     int_0^b f(x) dx .
