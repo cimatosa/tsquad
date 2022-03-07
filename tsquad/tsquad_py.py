@@ -762,6 +762,9 @@ class QuadTS(object):
         """
         Convenient function to integrate `f(x) * cos(w*x)` from `a` to `b` using `quad_osc()`.
         """
+        a = self._mathyfi_inf_str(a)
+        b = self._mathyfi_inf_str(b)
+
         qts = QuadTS(f=lambda x, *args: self.f(x, *args) * math.cos(w * x), other=self)
         return qts.quad_osc(a, b, frequency=abs(w))
 
@@ -769,6 +772,9 @@ class QuadTS(object):
         """
         Convenient function to integrate `f(x) * sin(w*x)` from `a` to `b` using `quad_osc()`.
         """
+        a = self._mathyfi_inf_str(a)
+        b = self._mathyfi_inf_str(b)
+
         qts = QuadTS(f=lambda x, *args: self.f(x, *args) * math.sin(w * x), other=self)
         return qts.quad_osc(a, b, frequency=abs(w))
 
@@ -776,6 +782,9 @@ class QuadTS(object):
         """
         Convenient function to integrate `f(x) * exp(1j*w*x)` from `a` to `b` using `quad_osc()`.
         """
+        a = self._mathyfi_inf_str(a)
+        b = self._mathyfi_inf_str(b)
+
         qts = QuadTS(
             f=lambda x, *args: self.f(x, *args) * cmath.exp(1j * w * x), other=self
         )
