@@ -765,8 +765,11 @@ class QuadTS(object):
         a = self._mathyfi_inf_str(a)
         b = self._mathyfi_inf_str(b)
 
-        qts = QuadTS(f=lambda x, *args: self.f(x, *args) * math.cos(w * x), other=self)
-        return qts.quad_osc(a, b, frequency=abs(w))
+        if w != 0:
+            qts = QuadTS(f=lambda x, *args: self.f(x, *args) * math.cos(w * x), other=self)
+            return qts.quad_osc(a, b, frequency=abs(w))
+        else:
+            return self.quad(a, b)
 
     def quad_sin(self, a: numeric, b: numeric, w: numeric):
         """
@@ -775,8 +778,11 @@ class QuadTS(object):
         a = self._mathyfi_inf_str(a)
         b = self._mathyfi_inf_str(b)
 
-        qts = QuadTS(f=lambda x, *args: self.f(x, *args) * math.sin(w * x), other=self)
-        return qts.quad_osc(a, b, frequency=abs(w))
+        if w != 0:
+            qts = QuadTS(f=lambda x, *args: self.f(x, *args) * math.sin(w * x), other=self)
+            return qts.quad_osc(a, b, frequency=abs(w))
+        else:
+            return self.quad(a, b)
 
     def quad_Fourier(self, a: numeric, b: numeric, w: numeric):
         """
@@ -785,7 +791,10 @@ class QuadTS(object):
         a = self._mathyfi_inf_str(a)
         b = self._mathyfi_inf_str(b)
 
-        qts = QuadTS(
-            f=lambda x, *args: self.f(x, *args) * cmath.exp(1j * w * x), other=self
-        )
-        return qts.quad_osc(a, b, frequency=abs(w))
+        if w != 0:
+            qts = QuadTS(
+                f=lambda x, *args: self.f(x, *args) * cmath.exp(1j * w * x), other=self
+            )
+            return qts.quad_osc(a, b, frequency=abs(w))
+        else:
+            return self.quad(a, b)
