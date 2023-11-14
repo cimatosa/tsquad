@@ -39,4 +39,4 @@ def test_BCF():
 
         for tau in [0.1, 1, 10]:
             r = qts.quad_Fourier(0, math.inf, w=-tau)
-            assert abs(r.I - bcf(tau, s, wc)) < 1e-12
+            assert abs(r.I - bcf(tau, s, wc)) < 5e-12

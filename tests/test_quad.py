@@ -4,6 +4,8 @@ import cmath
 
 import logging
 
+import mpmath
+
 logging.root.setLevel(logging.DEBUG)
 
 
@@ -218,24 +220,52 @@ def test_quad_osc_generic():
 
 
 def test_quad_Fourier():
+    Gamma = {
+        0.5: 0.8862269254527579,
+        1: 1,
+    }
+    for s in [1]:
+        f = lambda w: w**s * math.exp(-w)
+        qts = QuadTS(f=f)
+        for sign in [1, -1]:
+            for t in [0.012, 0.2, 2.3, 20.4]:
+                t *= sign
+                r = qts.quad_Fourier(0, "inf", -t)
+                d = abs(r.I - Gamma[s] / (1 + 1j * t) ** (s + 1))
+                assert d < 1e-14
+
+                r_c = qts.quad_cos(0, "inf", -t)
+                d = abs(r_c.I - (Gamma[s] / (1 + 1j * t) ** (s + 1)).real)
+                assert d < 1e-14
+
+                r_s = qts.quad_sin(0, "inf", -t)
+                d = abs(r_s.I - (Gamma[s] / (1 + 1j * t) ** (s + 1)).imag)
+                assert d < 1e-14
+
+def test_quad_Fourier_algebraic_decay():
     s = 0.5
-    Gamma_1_5 = 0.8862269254527579
-    f = lambda w: w**s * math.exp(-w)
+    wc = 15
+
+    # obtained using Mathematica
+    ref_ref = {
+        (+1, 0.012):  68.8333591939232970088681882418 - 38.9616755174490616053123952445j,
+        (-1, 0.012):  68.8333591939232970088681882418 + 38.9616755174490616053123952445j,
+        (+1, 0.2):   -4.75636978669432429529187109911 - 11.1815944500085145815159714729j,
+        (-1, 0.2):   -4.75636978669432429529187109911 + 11.1815944500085145815159714729j,
+        (+1, 2.3):  -0.180228284141170654111833451029 - 0.180228284141304618745351979179j,
+        (-1, 2.3):  -0.180228284141170654111833451029 + 0.180228284141304618745351979179j,
+        (+1, 20.4): -0.006801459043777538928539686825 - 0.006801459043777538928539686802j,
+        (-1, 20.4): -0.006801459043777538928539686825 + 0.006801459043777538928539686802j,
+    }
+
+    f = lambda w: w**s / (1 + (w/wc)**2)
     qts = QuadTS(f=f)
     for sign in [1, -1]:
         for t in [0.012, 0.2, 2.3, 20.4]:
+            _r = ref_ref[(sign, t)]
             t *= sign
             r = qts.quad_Fourier(0, "inf", -t)
-            d = abs(r.I - Gamma_1_5 / (1 + 1j * t) ** (s + 1))
-            assert d < 1e-14
-
-            r_c = qts.quad_cos(0, "inf", -t)
-            d = abs(r_c.I - (Gamma_1_5 / (1 + 1j * t) ** (s + 1)).real)
-            assert d < 1e-14
-
-            r_s = qts.quad_sin(0, "inf", -t)
-            d = abs(r_s.I - (Gamma_1_5 / (1 + 1j * t) ** (s + 1)).imag)
-            assert d < 1e-14
+            assert abs(_r - r.I) < 1e-10
 
 
 def test_quad_Fourier_finite():

@@ -659,41 +659,45 @@ class QuadTS(object):
         """
 
         logging.debug(f"run shanks [{a},inf]")
-        sht = shanks.Shanks(use_mp=use_mp)
+        sht = shanks.Shanks(use_mp=False)
 
         cnt = 0
-        res = QuadRes()
-        x_low = a
-
         # use half the native period this yields an alternating series
         # who's partial sum is well suited for extrapolation using Shanks' transform
         period /= 2
         logging.debug(f"set period to {period}")
 
+        # init with a first half period integral
+        x_low = a
+        x_high = a + (cnt + 1) * period
+        res = self.quad_finite_boundary(x_low, x_high)
+        logging.debug("initial quad [{},{}] -> {}".format(x_low, x_high, res.I))
+        x_low = x_high
+        sht.add_element(res.I)
+        cnt += 1
+
         while True:
-            # we need two new elements to get a new order for the Shanks transform
-            for _ in range(2):
-                x_high = a + (cnt + 1) * period
-                new_res = self.quad_finite_boundary(x_low, x_high)
-                logging.debug("quad [{},{}] -> {}".format(x_low, x_high, new_res.I))
-                res = res + new_res
-                if abs(new_res.I) / abs(res.I) < self.osc_threshold:
-                    logging.debug(
-                        "new_res smaller threshold -> stop (shanks not evaluated)"
-                    )
-                    logging.debug("return res {}".format(res.I))
-                    return res, None
+            x_high = a + (cnt + 1) * period
+            new_res = self.quad_finite_boundary(x_low, x_high)
+            logging.debug("quad [{},{}] -> {}".format(x_low, x_high, new_res.I))
+            res = res + new_res
+            if abs(new_res.I) / abs(res.I) < self.osc_threshold:
+                logging.debug(
+                    "new_res smaller threshold -> stop (shanks not evaluated)"
+                )
+                logging.debug("return res {}".format(res.I))
+                return res, None
 
-                logging.debug("accum res {}".format(res.I))
-                sht.add_element(res.I)
-                cnt += 1
-                x_low = x_high
+            logging.debug("accum res {}".format(res.I))
+            sht.add_element(res.I)
+            cnt += 1
+            x_low = x_high
 
-            # this is the latest estimate
-            eps = sht.get_shanks(k=-1)
-            # this is the second-latest estimate
-            eps2 = sht.get_shanks(k=-2)
-            if abs((eps - eps2) / eps) < self.osc_threshold:
+            eps2, eps = sht.get_two_latest_estimates()
+            logging.debug(f"shanks latest estimates -> {eps2} and {eps}")
+            rel_diff = abs((eps - eps2) / eps)
+            logging.debug(f"current rel diff of shanks estimates {rel_diff}")
+            if rel_diff < self.osc_threshold:
                 logging.debug("diff of shanks estimates smaller threshold -> stop")
                 res.I = eps
                 res.err = None
