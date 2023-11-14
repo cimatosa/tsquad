@@ -87,7 +87,7 @@ def __write_g_w_c_header(fname):
             print("};\n", file=f)
 
             s = "static const double one_minus_g[{}][{}] = {{\n".format(
-                ts._N_tmax, 2 * N0 * 2 ** k + 1
+                ts._N_tmax, 2 * N0 * 2**k + 1
             )
             s_offs = 2
             for i in range(ts._N_tmax):
@@ -96,7 +96,7 @@ def __write_g_w_c_header(fname):
                 else:
                     print(",\n", end="", file=f)
 
-                t = mp.linspace(ts._tmin, ts._tmax_list[i], 2 * N0 * 2 ** k + 1)
+                t = mp.linspace(ts._tmin, ts._tmax_list[i], 2 * N0 * 2**k + 1)
                 N = N0
                 for ki in range(k + 1):
                     if ki == 0:
@@ -134,7 +134,7 @@ def __write_g_w_c_header(fname):
             print("};\n", file=f)
 
             s = "static const double w[{}][{}] = {{".format(
-                ts._N_tmax, 2 * N0 * 2 ** k + 1
+                ts._N_tmax, 2 * N0 * 2**k + 1
             )
             s_offs = 2
 
@@ -144,7 +144,7 @@ def __write_g_w_c_header(fname):
                 else:
                     print(",\n", end="", file=f)
 
-                t = mp.linspace(ts._tmin, ts._tmax_list[i], 2 * N0 * 2 ** k + 1)
+                t = mp.linspace(ts._tmin, ts._tmax_list[i], 2 * N0 * 2**k + 1)
                 N = N0
                 for ki in range(k + 1):
                     if ki == 0:
@@ -180,7 +180,7 @@ def __write_g_w_c_header(fname):
             print("};\n", file=f)
 
             s = "static const double y_over_1_minus_y[{}][{}] = {{\n".format(
-                ts._N_tmax, 2 * N0 * 2 ** k + 1
+                ts._N_tmax, 2 * N0 * 2**k + 1
             )
             s_offs = 2
             for i in range(ts._N_tmax):
@@ -189,7 +189,7 @@ def __write_g_w_c_header(fname):
                 else:
                     print(",\n", end="", file=f)
 
-                t = mp.linspace(ts._tmin, ts._tmax_list[i], 2 * N0 * 2 ** k + 1)
+                t = mp.linspace(ts._tmin, ts._tmax_list[i], 2 * N0 * 2**k + 1)
                 N = N0
                 for ki in range(k + 1):
                     if ki == 0:

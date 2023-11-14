@@ -77,7 +77,7 @@ def write_g_w_(N_0, k, f_name, t_max_list, t_min):
             else:
                 print(",\n        ", end="", file=f)
 
-            t = mp.linspace(t_min, t_max_list[i], 2 * N_0 * 2 ** k + 1)
+            t = mp.linspace(t_min, t_max_list[i], 2 * N_0 * 2**k + 1)
             N = N_0
             for ki in range(k + 1):
                 if ki == 0:
@@ -114,7 +114,7 @@ def write_g_w_(N_0, k, f_name, t_max_list, t_min):
             else:
                 print(",\n      ", end="", file=f)
 
-            t = mp.linspace(t_min, t_max_list[i], 2 * N_0 * 2 ** k + 1)
+            t = mp.linspace(t_min, t_max_list[i], 2 * N_0 * 2**k + 1)
             N = N_0
             for ki in range(k + 1):
                 if ki == 0:

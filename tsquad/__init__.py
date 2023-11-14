@@ -18,3 +18,9 @@
 #     kind = "python"
 
 from .tsquad_py import QuadTS
+from .tsquad_py import (
+    TSIntegrationError,
+    TSIntegrationLimitReachedError,
+    TSIntegrationFunctionEvaluationError,
+    TSIntegrationOscLimitReachedError,
+)

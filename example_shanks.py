@@ -66,7 +66,7 @@ def example_log2():
 
 def example_osc_int():
     s = 0.2
-    f = lambda x: 1 / x ** s * math.cos(x)
+    f = lambda x: 1 / x**s * math.cos(x)
     qts = tsquad_py.QuadTS(f=f)
     r_ref = math.gamma(1 - s) * math.sin(math.pi * s / 2)
     r, sht = qts._quad_osc_upper_infinite_inspect(

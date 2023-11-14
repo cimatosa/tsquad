@@ -25,7 +25,9 @@ example in `examples_shanks.py`.
 
 ## poetry
 
-Add `tsquad` to your `pyproject.toml` file, like that
+Use `poetry` to add `tsquad` to your dependencies with `poetry add tsquad`.
+
+Or edit your `pyproject.toml` file like that
     
     [tool.poetry.dependencies]
     tsquad = "^0.2.0"

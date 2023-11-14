@@ -31,8 +31,7 @@ def test_BCF():
 
     wc = 10
     for s in [0.1, 0.5, 1]:
-
-        J_w = lambda w, s, wc: w ** s * math.exp(-w / wc)
+        J_w = lambda w, s, wc: w**s * math.exp(-w / wc)
         qts = tsquad_py.QuadTS(f=J_w, args=(s, wc), rec_limit=50)
         bcf = lambda tau, s, wc: (wc / (1 + 1j * wc * tau)) ** (s + 1) * math.gamma(
             s + 1

@@ -82,7 +82,6 @@ class QuadRes(object):
         self.rec_steps = rec_steps
 
     def __add__(self, other):
-
         if (self.err is not None) and (other.err is not None):
             err = self.err + other.err
         else:
@@ -240,7 +239,7 @@ class QuadTS(object):
         data_1mg = nodes_weights._1mg[t_max_idx]
         data_w = nodes_weights._w[t_max_idx]
 
-        eps = 10 ** -14
+        eps = 10**-14
 
         I_res_n2 = 0
         I_res_n1 = 0
@@ -303,7 +302,7 @@ class QuadTS(object):
                 if self.debug:
                     print(
                         "d1 = I_n - I_(n-1)    {:.8e} -> err {:.16e}".format(
-                            d1, d1 ** 2
+                            d1, d1**2
                         )
                     )
                 if d1 == 0:
@@ -324,14 +323,14 @@ class QuadTS(object):
                 if self.debug:
                     print("d2 = I_n - I_(n-2)    {:.8e}".format(d2))
 
-                err1 = d1 ** 2
+                err1 = d1**2
                 if self.debug:
                     print("err1 = {:.8e}".format(err1))
 
                 if (d2 > 1e-308) and (d2 < 1):
                     try:
                         d2_log = math.log10(d2)
-                        tmp = d1_log ** 2 / d2_log
+                        tmp = d1_log**2 / d2_log
                     except ZeroDivisionError:
                         print("d2", d2)
                         print("d2_log", d2_log)
@@ -349,7 +348,7 @@ class QuadTS(object):
                         if self.debug:
                             print("err2 = 10  (due to 10 ** d1log^2/d2log overflow")
                     else:
-                        err2 = 10 ** tmp
+                        err2 = 10**tmp
                         if self.debug:
                             print("err2 = {:.8e}".format(err2))
                 else:
@@ -520,7 +519,7 @@ class QuadTS(object):
         """
         res1 = self.quad_finite_boundary(a, a + 1)
 
-        tsq2 = QuadTS(f=lambda t, *args: self.f(1 / t + a, *args) / t ** 2, other=self)
+        tsq2 = QuadTS(f=lambda t, *args: self.f(1 / t + a, *args) / t**2, other=self)
         res2 = tsq2.quad_finite_boundary(0, 1)
 
         return res1 + res2
@@ -540,7 +539,7 @@ class QuadTS(object):
 
         res1 = self.quad_finite_boundary(b - 1, b)
 
-        tsq2 = QuadTS(f=lambda t, *args: self.f(-1 / t + b, *args) / t ** 2, other=self)
+        tsq2 = QuadTS(f=lambda t, *args: self.f(-1 / t + b, *args) / t**2, other=self)
         res2 = tsq2.quad_finite_boundary(0, 1)
 
         return res1 + res2
@@ -608,22 +607,37 @@ class QuadTS(object):
         :param period: length of sub-intervals
         :return: the results as QuadRes
         """
+        logging.debug(f"run 'quad_osc_finite', intgr. [{a}, {b}]")
         cnt = 0
         res = QuadRes()
         x_low = a
         while True:
             x_high = a + (cnt + 1) * period
+            logging.debug(f"quad interval [{x_low}, {x_high}] cnt={cnt}")
             if (x_high) > b:
                 x_high = b
+                logging.debug(f"set x_high to upper bound, i.e., {x_high}")
 
             new_res = self.quad_finite_boundary(x_low, x_high)
-            if (abs(res.I) != 0) and (
-                abs((res.I - new_res.I) / res.I) < self.osc_threshold
-            ):
-                return res
-
+            logging.debug(f"new (partial) result is {new_res}")
             res = res + new_res
             if x_high == b:
+                logging.debug("return cause upper bound was reached")
+                logging.debug("final result is {}".format(res.I))
+                return res
+
+            if (abs(res.I) != 0) and (abs(new_res.I / res.I) < self.osc_threshold):
+                logging.debug(
+                    "return cause osc_threshold {:.3e} meat".format(self.osc_threshold)
+                )
+                logging.debug("  accum res = {}".format(res.I))
+                logging.debug(
+                    "  rel weight abs(new_res/accum_res) = {} (osc_threshold condition)".format(
+                        abs(new_res.I / res.I)
+                    )
+                )
+
+                logging.debug("final result is {}".format(res.I))
                 return res
 
             if (cnt > self.osc_limit) and (self.osc_limit > 0):
@@ -711,7 +725,7 @@ class QuadTS(object):
         """
         General method used to integrate an oscillatory function with
         period `period` from `a` to `b`.
-        Automatically handly infinite boundaries.
+        Automatically handle infinite boundaries.
         For a finite integration interval, consider using simply `quad`, which might be faster.
         Specify either, period or frequency.
         :param a: lower boundary
@@ -766,7 +780,9 @@ class QuadTS(object):
         b = self._mathyfi_inf_str(b)
 
         if w != 0:
-            qts = QuadTS(f=lambda x, *args: self.f(x, *args) * math.cos(w * x), other=self)
+            qts = QuadTS(
+                f=lambda x, *args: self.f(x, *args) * math.cos(w * x), other=self
+            )
             return qts.quad_osc(a, b, frequency=abs(w))
         else:
             return self.quad(a, b)
@@ -779,7 +795,9 @@ class QuadTS(object):
         b = self._mathyfi_inf_str(b)
 
         if w != 0:
-            qts = QuadTS(f=lambda x, *args: self.f(x, *args) * math.sin(w * x), other=self)
+            qts = QuadTS(
+                f=lambda x, *args: self.f(x, *args) * math.sin(w * x), other=self
+            )
             return qts.quad_osc(a, b, frequency=abs(w))
         else:
             return self.quad(a, b)
