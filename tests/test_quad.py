@@ -222,18 +222,20 @@ def test_quad_Fourier():
     Gamma_1_5 = 0.8862269254527579
     f = lambda w: w**s * math.exp(-w)
     qts = QuadTS(f=f)
-    for t in [0.2, 2.3, 20.4]:
-        r = qts.quad_Fourier(0, "inf", -t)
-        d = abs(r.I - Gamma_1_5 / (1 + 1j * t) ** (s + 1))
-        assert d < 1e-14
+    for sign in [1, -1]:
+        for t in [0.012, 0.2, 2.3, 20.4]:
+            t *= sign
+            r = qts.quad_Fourier(0, "inf", -t)
+            d = abs(r.I - Gamma_1_5 / (1 + 1j * t) ** (s + 1))
+            assert d < 1e-14
 
-        r_c = qts.quad_cos(0, "inf", -t)
-        d = abs(r_c.I - (Gamma_1_5 / (1 + 1j * t) ** (s + 1)).real)
-        assert d < 1e-14
+            r_c = qts.quad_cos(0, "inf", -t)
+            d = abs(r_c.I - (Gamma_1_5 / (1 + 1j * t) ** (s + 1)).real)
+            assert d < 1e-14
 
-        r_s = qts.quad_sin(0, "inf", -t)
-        d = abs(r_s.I - (Gamma_1_5 / (1 + 1j * t) ** (s + 1)).imag)
-        assert d < 1e-14
+            r_s = qts.quad_sin(0, "inf", -t)
+            d = abs(r_s.I - (Gamma_1_5 / (1 + 1j * t) ** (s + 1)).imag)
+            assert d < 1e-14
 
 
 def test_quad_Fourier_finite():
@@ -242,17 +244,19 @@ def test_quad_Fourier_finite():
 
         qts = QuadTS(f=f)
         qts2 = QuadTS(f=f, osc_threshold=0)
-        for t in [2, 4, 8, 16, 32]:
-            wmax = 5
+        for sign in [1, -1]:
+            for t in [0.001, 0.1, 2, 4, 8, 16, 32]:
+                t *= sign
+                wmax = 5
 
-            r = qts.quad_Fourier(0, wmax, t)
-            r2 = qts2.quad_Fourier(0, wmax, t)
-            f_Fourier = lambda w: f(w) * cmath.exp(1j * w * t)
-            qts_F = QuadTS(f=f_Fourier)
-            r_F = qts_F.quad(0, wmax)
+                r = qts.quad_Fourier(0, wmax, t)
+                r2 = qts2.quad_Fourier(0, wmax, t)
+                f_Fourier = lambda w: f(w) * cmath.exp(1j * w * t)
+                qts_F = QuadTS(f=f_Fourier)
+                r_F = qts_F.quad(0, wmax)
 
-            d = abs(r.I - r_F.I)
-            assert d < 2e-13
+                d = abs(r.I - r_F.I)
+                assert d < 2e-13
 
-            d2 = abs(r2.I - r_F.I)
-            assert d2 < 2e-13
+                d2 = abs(r2.I - r_F.I)
+                assert d2 < 2e-13

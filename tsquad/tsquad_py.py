@@ -23,7 +23,7 @@ from . import nodes_weights
 ##    typedefs
 ########################################################################################################################
 numeric = typing.Union[int, float]
-
+Union = typing.Union
 
 ########################################################################################################################
 ##    define module specific exceptions
@@ -649,7 +649,7 @@ class QuadTS(object):
 
     def _quad_osc_upper_infinite_inspect(
         self, a: numeric, period: numeric, use_mp
-    ) -> typing.Tuple[QuadRes, shanks.Shanks]:
+    ) -> typing.Tuple[QuadRes, Union[shanks.Shanks, None]]:
         """
         see `quad_osc_upper_infinite`
 
@@ -657,6 +657,8 @@ class QuadTS(object):
 
         :return: a tuple containing the result and the Shanks object
         """
+
+        logging.debug(f"run shanks [{a},inf]")
         sht = shanks.Shanks(use_mp=use_mp)
 
         cnt = 0
@@ -666,13 +668,23 @@ class QuadTS(object):
         # use half the native period this yields an alternating series
         # who's partial sum is well suited for extrapolation using Shanks' transform
         period /= 2
+        logging.debug(f"set period to {period}")
 
         while True:
             # we need two new elements to get a new order for the Shanks transform
             for _ in range(2):
                 x_high = a + (cnt + 1) * period
                 new_res = self.quad_finite_boundary(x_low, x_high)
+                logging.debug("quad [{},{}] -> {}".format(x_low, x_high, new_res.I))
                 res = res + new_res
+                if abs(new_res.I) / abs(res.I) < self.osc_threshold:
+                    logging.debug(
+                        "new_res smaller threshold -> stop (shanks not evaluated)"
+                    )
+                    logging.debug("return res {}".format(res.I))
+                    return res, None
+
+                logging.debug("accum res {}".format(res.I))
                 sht.add_element(res.I)
                 cnt += 1
                 x_low = x_high
@@ -682,8 +694,10 @@ class QuadTS(object):
             # this is the second-latest estimate
             eps2 = sht.get_shanks(k=-2)
             if abs((eps - eps2) / eps) < self.osc_threshold:
+                logging.debug("diff of shanks estimates smaller threshold -> stop")
                 res.I = eps
                 res.err = None
+                logging.debug("return res {}".format(res.I))
                 return res, sht
 
             if cnt > self.osc_limit:
