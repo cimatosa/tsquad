@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "tsquad"
-version = "0.2.1"
+version = "0.2.2"
 description = "numeric quadrature using the Tanh-Sinh variable transformation"
 authors = ["Richard Hartmann <richard.hartmann@tu-dresden.de>"]
 
